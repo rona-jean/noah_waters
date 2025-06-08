@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - Noah Waters</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Boogaloo&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="cart-container">
+        <div class="cart-header">
+            <img src="logo.jpg" alt="Noah Waters Logo" class="cart-logo">
+            <h1>Your Cart</h1>
+        </div>
+
+        <div class="cart-content">
+            <div id="cart-items" class="cart-items">
+                <!-- Cart items will be dynamically added here -->
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">₱0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>Delivery Fee:</span>
+                    <span id="delivery-fee">FREE</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total:</span>
+                    <span id="total">₱0.00</span>
+                </div>
+                <button id="checkout-btn" class="checkout-btn">Proceed to Checkout</button>
+                <a href="menu.html" class="continue-shopping">Continue Shopping</a>
+            </div>
+        </div>
+    </div>
+
+<script src="cart.js"></script>
+<script>
+let cart = [];
+
+function loadCart() {
+    fetch('cart_operations.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({action: 'get'}),
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cart = data.items;
+            displayCart();
+        } else {
+            cart = [];
+            displayCart();
+        }
+    })
+    .catch(() => {
+        cart = [];
+        displayCart();
+    });
+}
+
+function displayCart() {
+    const cartItems = document.getElementById('cart-items');
+    const subtotalElement = document.getElementById('subtotal');
+    const totalElement = document.getElementById('total');
+    const deliveryFee = 0;
+
+    cartItems.innerHTML = '';
+
+    if (cart.length === 0) {
+        cartItems.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+        subtotalElement.textContent = '₱0.00';
+        totalElement.textContent = '₱0.00';
+        return;
+    }
+
+    let subtotal = 0;
+
+    cart.forEach((item) => {
+        const itemTotal = item.price * item.quantity;
+        subtotal += itemTotal;
+
+        const cartItem = document.createElement('div');
+        cartItem.className = 'cart-item';
+        cartItem.innerHTML = `
+            <img src="${item.image}" alt="${item.name}" class="cart-item-image">
+            <div class="cart-item-details">
+                <h3>${item.name}</h3>
+                <p class="cart-item-price">₱${item.price.toFixed(2)}</p>
+            </div>
+            <div class="cart-item-quantity">
+                <button onclick="updateQuantity(${item.product_id}, -1)">-</button>
+                <span>${item.quantity}</span>
+                <button onclick="updateQuantity(${item.product_id}, 1)">+</button>
+            </div>
+            <div class="cart-item-total">
+                ₱${itemTotal.toFixed(2)}
+            </div>
+            <button onclick="removeItem(${item.product_id})" class="remove-item">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        cartItems.appendChild(cartItem);
+    });
+
+    subtotalElement.textContent = `₱${subtotal.toFixed(2)}`;
+    totalElement.textContent = `₱${(subtotal + deliveryFee).toFixed(2)}`;
+}
+
+function updateQuantity(productId, change) {
+    const item = cart.find(item => item.product_id === productId);
+    if (!item) return;
+
+    const newQuantity = item.quantity + change;
+    if (newQuantity <= 0) {
+        removeItem(productId);
+        return;
+    }
+
+    fetch('cart_operations.php', {
+        method: 'POST',
+        body: new URLSearchParams({
+            action: 'update',
+            product_id: productId,
+            quantity: newQuantity
+        }),
+        credentials: 'same-origin'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            loadCart();
+        } else {
+            alert('Failed to update quantity');
+        }
+    })
+    .catch(() => {
+        alert('Error updating quantity');
+    });
+}
+
+function removeItem(productId) {
+    fetch('cart_operations.php', {
+        method: 'POST',
+        body: new URLSearchParams({
+            action: 'remove',
+            product_id: productId
+        }),
+        credentials: 'same-origin'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            loadCart();
+        } else {
+            alert('Failed to remove item');
+        }
+    })
+    .catch(() => {
+        alert('Error removing item');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadCart();
+});
+
+document.getElementById('checkout-btn').addEventListener('click', () => {
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
+        return;
+    }
+    alert('Proceeding to checkout...');
+});
+</script>
+
+</body>
+</html>
+
+<script>
+function addToCart(productId, quantity = 1) {
+    fetch('cart_operations.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+            action: 'add',
+            product_id: productId,
+            quantity: quantity
+        }),
+        credentials: 'same-origin'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Item added to cart!');
+        } else {
+            alert('Failed to add item: ' + data.message);
+        }
+    })
+    .catch(() => {
+        alert('Error adding to cart.');
+    });
+}
+</script>
+
